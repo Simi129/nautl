@@ -3,16 +3,103 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Github, Mail } from 'lucide-react';
+import { Github, Mail, Loader2 } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
 export default function AuthForm() {
   const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const router = useRouter();
+  const supabase = createClient();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    // В реальном приложении здесь была бы логика аутентификации
-    router.push('/dashboard');
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      if (isSignUp) {
+        // Регистрация
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullName,
+            },
+          },
+        });
+
+        if (error) throw error;
+
+        if (data.user) {
+          setMessage('Check your email to confirm your account!');
+          setTimeout(() => {
+            router.push('/dashboard');
+            router.refresh();
+          }, 2000);
+        }
+      } else {
+        // Вход
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) throw error;
+
+        router.push('/dashboard');
+        router.refresh();
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGitHubAuth = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'github',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (error) throw error;
+    } catch (err: any) {
+      setError(err.message || 'An error occurred');
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleAuth = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (error) throw error;
+    } catch (err: any) {
+      setError(err.message || 'An error occurred');
+      setLoading(false);
+    }
   };
 
   return (
@@ -35,14 +122,34 @@ export default function AuthForm() {
             {isSignUp ? 'Get started with Nexus today' : 'Sign in to your account'}
           </p>
 
+          {/* Error/Success Messages */}
+          {error && (
+            <div className="mb-6 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
+              {error}
+            </div>
+          )}
+          {message && (
+            <div className="mb-6 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-500 text-sm">
+              {message}
+            </div>
+          )}
+
           {/* Social Login */}
           <div className="space-y-3 mb-6">
-            <button className="w-full h-11 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors flex items-center justify-center gap-3 text-sm font-medium text-white">
-              <Github size={18} />
+            <button
+              onClick={handleGitHubAuth}
+              disabled={loading}
+              className="w-full h-11 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors flex items-center justify-center gap-3 text-sm font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? <Loader2 size={18} className="animate-spin" /> : <Github size={18} />}
               Continue with GitHub
             </button>
-            <button className="w-full h-11 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors flex items-center justify-center gap-3 text-sm font-medium text-white">
-              <Mail size={18} />
+            <button
+              onClick={handleGoogleAuth}
+              disabled={loading}
+              className="w-full h-11 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors flex items-center justify-center gap-3 text-sm font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} />}
               Continue with Google
             </button>
           </div>
@@ -58,7 +165,7 @@ export default function AuthForm() {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleEmailAuth} className="space-y-4">
             {isSignUp && (
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-neutral-300 mb-2">
@@ -67,6 +174,9 @@ export default function AuthForm() {
                 <input
                   type="text"
                   id="name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required={isSignUp}
                   className="w-full h-11 bg-black border border-neutral-800 rounded-lg px-4 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors"
                   placeholder="John Doe"
                 />
@@ -80,6 +190,9 @@ export default function AuthForm() {
               <input
                 type="email"
                 id="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
                 className="w-full h-11 bg-black border border-neutral-800 rounded-lg px-4 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors"
                 placeholder="you@example.com"
               />
@@ -92,6 +205,10 @@ export default function AuthForm() {
               <input
                 type="password"
                 id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
                 className="w-full h-11 bg-black border border-neutral-800 rounded-lg px-4 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors"
                 placeholder="••••••••"
               />
@@ -103,16 +220,37 @@ export default function AuthForm() {
                   <input type="checkbox" className="w-4 h-4 rounded border-neutral-700 bg-black" />
                   Remember me
                 </label>
-                <a href="#" className="text-white hover:underline">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!email) {
+                      setError('Please enter your email first');
+                      return;
+                    }
+                    setLoading(true);
+                    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                      redirectTo: `${window.location.origin}/auth/reset-password`,
+                    });
+                    if (error) {
+                      setError(error.message);
+                    } else {
+                      setMessage('Check your email for password reset link');
+                    }
+                    setLoading(false);
+                  }}
+                  className="text-white hover:underline"
+                >
                   Forgot password?
-                </a>
+                </button>
               </div>
             )}
 
             <button
               type="submit"
-              className="w-full h-11 rounded-lg bg-white text-black text-sm font-medium hover:bg-neutral-200 transition-colors"
+              disabled={loading}
+              className="w-full h-11 rounded-lg bg-white text-black text-sm font-medium hover:bg-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
+              {loading && <Loader2 size={16} className="animate-spin" />}
               {isSignUp ? 'Create Account' : 'Sign In'}
             </button>
           </form>
@@ -121,8 +259,13 @@ export default function AuthForm() {
           <p className="text-sm text-neutral-500 text-center mt-6">
             {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
             <button
-              onClick={() => setIsSignUp(!isSignUp)}
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                setError(null);
+                setMessage(null);
+              }}
               className="text-white hover:underline font-medium"
+              disabled={loading}
             >
               {isSignUp ? 'Sign in' : 'Sign up'}
             </button>

@@ -1,6 +1,30 @@
+'use client';
+
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import type { User } from '@supabase/supabase-js';
 
 export default function Navbar() {
+  const [user, setUser] = useState<User | null>(null);
+  const supabase = createClient();
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+
+    getUser();
+
+    // Подписка на изменения авторизации
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase.auth]);
+
   return (
     <nav className="fixed top-0 w-full z-50 glass border-b border-white/10">
       <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
@@ -19,12 +43,25 @@ export default function Navbar() {
         </div>
         
         <div className="flex items-center gap-4">
-          <Link href="/auth" className="text-xs font-medium text-neutral-400 hover:text-white transition-colors">
-            Log in
-          </Link>
-          <Link href="/auth" className="text-xs font-medium bg-white text-black px-3 py-1.5 rounded-full hover:bg-neutral-200 transition-colors">
-            Sign Up
-          </Link>
+          {user ? (
+            <>
+              <Link 
+                href="/dashboard" 
+                className="text-xs font-medium bg-white text-black px-3 py-1.5 rounded-full hover:bg-neutral-200 transition-colors"
+              >
+                Dashboard
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link href="/auth" className="text-xs font-medium text-neutral-400 hover:text-white transition-colors">
+                Log in
+              </Link>
+              <Link href="/auth" className="text-xs font-medium bg-white text-black px-3 py-1.5 rounded-full hover:bg-neutral-200 transition-colors">
+                Sign Up
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </nav>

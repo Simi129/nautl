@@ -1,18 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, MessageCircle, Settings, LogOut, Loader2 } from 'lucide-react';
+import { LayoutDashboard, MessageCircle, Settings, LogOut, Loader2, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import PortfolioTab from './dashboard/PortfolioTab';
 import ChatTab from './dashboard/ChatTab';
+import UserSettings from './UserSettings';
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'portfolio' | 'chat'>('portfolio');
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -91,6 +93,7 @@ export default function Dashboard() {
 
         <div className="flex flex-col gap-4">
           <button 
+            onClick={() => setShowSettings(true)}
             className="w-10 h-10 rounded-lg flex items-center justify-center text-neutral-500 hover:text-white transition-colors"
             title="Settings"
           >
@@ -110,6 +113,7 @@ export default function Dashboard() {
               src={getUserAvatar()}
               alt={getUserDisplayName()}
               className="w-8 h-8 rounded-full object-cover cursor-pointer"
+              onClick={() => setShowSettings(true)}
             />
             {/* Tooltip with user info */}
             <div className="absolute left-full ml-2 bottom-0 bg-neutral-800 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
@@ -129,7 +133,10 @@ export default function Dashboard() {
               {activeTab === 'portfolio' ? 'Portfolio' : 'Chat'}
             </h1>
             
-            <div className="flex items-center gap-3">
+            <div 
+              className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => setShowSettings(true)}
+            >
               <div className="text-right">
                 <div className="text-sm font-medium text-white">{getUserDisplayName()}</div>
                 <div className="text-xs text-neutral-500">{user?.email}</div>
@@ -147,6 +154,22 @@ export default function Dashboard() {
         {activeTab === 'portfolio' && <PortfolioTab />}
         {activeTab === 'chat' && <ChatTab />}
       </main>
+
+      {/* Settings Modal */}
+      {showSettings && user && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative">
+            <button
+              onClick={() => setShowSettings(false)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-neutral-500 hover:text-white hover:bg-neutral-800 transition-colors"
+            >
+              <X size={20} />
+            </button>
+            
+            <UserSettings user={user} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
